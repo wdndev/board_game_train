@@ -1,0 +1,9 @@
+# 输出文件
+__pycache__
+
+
+datasets/chess_label_sets
+datasets/conn6_data
+datasets/test
+
+logs/*
