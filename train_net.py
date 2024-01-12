@@ -13,7 +13,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 
-from module.lr_scheduler import Cosine, NoDecay
+from module.lr_scheduler import WarmupLRScheduler, Cosine, NoDecay
 
 from utils.bar import Bar
 from utils.helper import create_directory
@@ -23,7 +23,7 @@ from utils.log import Logger
 class TrainNet:
     """ 神经网络训练
     """
-    def __init__(self, net_work, device, board_size = 19, lr = 5e-3, is_lr_decay=True, is_load_model=True) -> None:
+    def __init__(self, net_work:nn.Module, device, board_size = 19, lr = 5e-3, is_lr_decay=True, is_load_model=True) -> None:
         
         self.net_work = net_work
         self.device = device
@@ -34,16 +34,16 @@ class TrainNet:
         self.optimizer = optim.Adam(self.net_work.parameters(), lr=self.lr)
         self.lr_scheduler = None
         # 学习率衰减
-        # if is_lr_decay:
-        #     self.lr_scheduler = Cosine(optimizer=self.optimizer, start_lr=self.lr, 
-        #                                 warmup_iter=1, end_iter=500, num_iter=0)
-        # else:
-        #     self.lr_scheduler = NoDecay(optimizer=self.optimizer, start_lr=self.lr, 
-        #                                 warmup_iter=1, end_iter=500, num_iter=0)
+        if is_lr_decay:
+            self.lr_scheduler = Cosine(optimizer=self.optimizer, start_lr=self.lr, 
+                                        warmup_iter=2, end_iter=500, num_iter=0)
+        else:
+            self.lr_scheduler = NoDecay(optimizer=self.optimizer, start_lr=self.lr, 
+                                        warmup_iter=2, end_iter=500, num_iter=0)
 
         self.model_path = create_directory("logs/" + self.model_name)
         # print(self.model_path)
-        # sys.stdout = Logger(str(self.model_path + "/train.log"))
+        sys.stdout = Logger(str(self.model_path + "/train.log"))
 
         self.writer = SummaryWriter(log_dir=self.model_path + "/tensorboard")
         # 显示网络结构
@@ -51,12 +51,14 @@ class TrainNet:
         self.writer.add_graph(self.net_work, input_to_model = torch.rand(5,input_channel_dim,board_size,board_size).to(device))
         self.train_step_count = 0
 
-        # 加载模型和优化器参数
+        # 加载模型、优化器和学习率参数
         if is_load_model:
-            model_weight, optimizer_weight, train_step_count = self.load_model_weight(self.model_path + "/model", "best")
+            model_weight, optimizer_weight, lr_scheduler, train_step_count = self.load_model_weight(self.model_path + "/model", "best")
             if model_weight is not None and optimizer_weight is not None:
                 self.net_work.load_state_dict(model_weight)
                 self.optimizer.load_state_dict(optimizer_weight)
+                if lr_scheduler is not None:
+                    self.lr_scheduler.load_state_dict(lr_scheduler)
                 self.train_step_count = train_step_count + 1
                 print("Loading model parameters succeeded!")
             else:
@@ -72,57 +74,72 @@ class TrainNet:
         self.eval_pi_meter = AverageMeter()
         self.eval_v_meter = AverageMeter()
 
-    def train(self, train_loader, test_loader, epoches = 1):
+    def train(self, train_loader, test_loader):
         """ 训练
         """
         self.train_pi_meter.reset()
         self.train_v_meter.reset()
         self.eval_pi_meter.reset()
         self.eval_v_meter.reset()
-        for epoch in range(epoches):
-            batch_num = int(len(train_loader))
-            bar = Bar('Training', max=batch_num)
-            for batch_idx, batch_data in enumerate(train_loader):
-                start = time.time()
-                # self.lr_policy(self.train_step_count)
-                # 训练一次
-                train_pi_loss, train_v_loss = self.train_one_step(self.net_work, self.optimizer, batch_data)
-                # 测试一次
-                eval_pi_loss, eval_v_loss = self.eval_one_step(self.net_work, self.get_random_batch(test_loader))
-                self.train_pi_meter.update(train_pi_loss.item())
-                self.train_v_meter.update(train_v_loss.item())
-                self.eval_pi_meter.update(eval_pi_loss.item())
-                self.eval_v_meter.update(eval_v_loss.item())
+        
+        # 所有损失
+        train_all_losses = []
+        eval_all_losses = []
 
-                # 学习率
-                curr_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
-                x_axis = (self.train_step_count * epoches + epoch) * batch_num + batch_idx
-                self.writer.add_scalar("Learning Rate", curr_lr, global_step=x_axis)
+        batch_num = int(len(train_loader))
+        bar = Bar('Training', max=batch_num)
+        start_epoch = time.time()
+        for batch_idx, batch_data in enumerate(train_loader):
+            start = time.time()
+            # 训练一次
+            train_pi_loss, train_v_loss = self.train_one_step(self.net_work, self.optimizer, batch_data)
+            # 测试一次
+            eval_pi_loss, eval_v_loss = self.eval_one_step(self.net_work, self.get_random_batch(test_loader))
+            # 记录损失
+            self.train_pi_meter.update(train_pi_loss.item())
+            self.train_v_meter.update(train_v_loss.item())
+            self.eval_pi_meter.update(eval_pi_loss.item())
+            self.eval_v_meter.update(eval_v_loss.item())
+            train_all_losses.append([train_pi_loss.item(), train_v_loss.item()])
+            eval_all_losses.append([eval_pi_loss.item(), eval_v_loss.item()])
 
-                batch_time = (time.time() - start)
-                # plot progress
-                bar.suffix = 'Iter-Epoch: {iter}-{epoch} | Batch: {batch}/{batch_num} | Time: {bt:.3f}s/{total:} | Loss_pi: {tpi:.4f}/{epi:.4f} | Loss_v: {tv:.3f}/{ev:.4f}'.format(
-                        iter = self.train_step_count,
-                        epoch = epoch + 1,
-                        batch=batch_idx,
-                        batch_num=batch_num,
-                        bt=batch_time,
-                        total=bar.elapsed_td,  # 总时间
-                        # eta=bar.eta_td,
-                        tpi=self.train_pi_meter.avg,
-                        epi=self.eval_pi_meter.avg,
-                        tv=self.train_v_meter.avg,
-                        ev=self.eval_v_meter.avg,
-                )
-                bar.next()
-            bar.finish()
+            # 学习率
+            curr_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+            x_axis = self.train_step_count * batch_num + batch_idx
+            self.writer.add_scalar("Learning Rate", curr_lr, global_step=x_axis)
+
+            batch_time = (time.time() - start)
+            # plot progress
+            bar.suffix = 'Iter-Epoch: {iter} | Batch: {batch}/{batch_num} | Time: {bt:.3f}s/{total:} | Loss_pi: {tpi:.4f}/{epi:.4f} | Loss_v: {tv:.3f}/{ev:.4f}'.format(
+                    iter = self.train_step_count,
+                    batch=batch_idx,
+                    batch_num=batch_num,
+                    bt=batch_time,
+                    total=bar.elapsed_td,  # 总时间
+                    # eta=bar.eta_td,
+                    tpi=self.train_pi_meter.avg,
+                    epi=self.eval_pi_meter.avg,
+                    tv=self.train_v_meter.avg,
+                    ev=self.eval_v_meter.avg,
+            )
+            bar.next()
+        bar.finish()
+        epoch_time = (time.time() - start_epoch)
 
         # 保存所有损失
-        self.save_loss("train", [self.train_pi_meter.avg, self.train_v_meter.avg, self.train_pi_meter.avg + self.train_v_meter.avg])
-        self.save_loss("eval", [self.eval_pi_meter.avg, self.eval_v_meter.avg, self.eval_pi_meter.avg+self.eval_v_meter.avg])
+        self.save_csv_data("train_loss", [self.train_pi_meter.avg, self.train_v_meter.avg, self.train_pi_meter.avg + self.train_v_meter.avg])
+        self.save_csv_data("eval_loss", [self.eval_pi_meter.avg, self.eval_v_meter.avg, self.eval_pi_meter.avg+self.eval_v_meter.avg])
+        self.save_all_loss("all_train_loss", train_all_losses)
+        self.save_all_loss("all_eval_loss", eval_all_losses)
+        # 保存当前学习率
+        curr_lr = self.optimizer.state_dict()['param_groups'][0]['lr']
+        self.save_csv_data("lr", [curr_lr])
+        # 当前轮次时间
+        self.save_csv_data("epoch_time", [epoch_time])
+
 
         # 绘制曲线
-        x_axis = self.train_step_count * epoches + epoch
+        x_axis = self.train_step_count
         self.writer.add_scalars("Policy Loss", {
                                 "Train": self.train_pi_meter.avg,
                                 "Val": self.eval_pi_meter.avg}, global_step=x_axis)
@@ -138,11 +155,14 @@ class TrainNet:
                 self.writer.add_histogram(name + "_gard", params.grad, global_step=x_axis)
                 self.writer.add_histogram(name + "_data", params, global_step=x_axis)
 
-
-        self.save_model_weight(self.net_work, self.optimizer, self.train_step_count, self.model_path + "/model", num_id = str(x_axis))
+        self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count, self.model_path + "/model", num_id = str(x_axis))
         # 最新的模型，当作最好的，后续可以改
-        self.save_model_weight(self.net_work, self.optimizer, self.train_step_count ,self.model_path + "/model", "best")
+        # if self.train_step_count > 10:
+        self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count ,self.model_path + "/model", "best")
         print("Successful epoches, saving the model is successful!")
+        # 学习率衰减
+        if self.lr_scheduler is not None:
+            self.lr_scheduler.step()
         self.train_step_count += 1
 
 
@@ -185,7 +205,7 @@ class TrainNet:
         # Backpropagation and optimization
         optimizer.zero_grad()
         total_loss.backward()
-        
+
         optimizer.step()
 
         return loss_pi, loss_v
@@ -264,17 +284,31 @@ class TrainNet:
             assert 0, f"Unsupported reduction mode {reduction}."
 
     
-    def save_loss(self, type_name : str, losses: list):
+    def save_all_loss(self, type_name : str, losses: list):
         """ 记录损失
         """
-        file_path = self.model_path + "/loss"
-        file_name = os.path.join(file_path, type_name + '_loss.csv')
+        file_path = self.model_path + "/record_train_data"
+        file_name = os.path.join(file_path, type_name + '.csv')
         if not os.path.exists(file_path):
             os.makedirs(file_path)
         ans = ''
         with open(file_name, "a") as file_point:
-            # for idx in range(len(losses)):
-            for i in losses:
+            for idx in range(len(losses)):
+                for i in losses[idx]:
+                    ans = ans + str(i) + ','
+                file_point.write(ans[:-1] + '\n')
+                ans = ''
+        
+    def save_csv_data(self, type_name : str, data: list, suffix:str='csv'):
+        """ 记录损失
+        """
+        file_path = self.model_path + "/record_train_data"
+        file_name = os.path.join(file_path, type_name + '.' + suffix)
+        if not os.path.exists(file_path):
+            os.makedirs(file_path)
+        ans = ''
+        with open(file_name, "a") as file_point:
+            for i in data:
                 ans = ans + str(i) + ','
             file_point.write(ans[:-1] + '\n')
             ans = ''
@@ -289,17 +323,19 @@ class TrainNet:
         file_path = os.path.join(model_path + "/", "model_" + num_id + ".pth")
         if not os.path.exists(file_path):
             print ("No model in path {}".format(file_path))
-            return None, None, None
+            return None, None, None, None
         params = torch.load(file_path)
-        return params["state_dict"], params["optimizer"], params["train_step_count"]
+        return params["state_dict"], params["optimizer"], params["lr_param"], params["train_step_count"]
 
     def save_model_weight(self, net : nn.Module, 
                           optimizer : optim.Optimizer, 
+                          lr_scheduler : WarmupLRScheduler,
                           train_step_count : int, 
-                           model_path : str, num_id : str):
+                          model_path : str, num_id : str):
         """ 保存神经网络和优化器参数
             - net : 神经网络
             - opertimizer : 优化器
+            - lr_scheduler : 学习率
             - model_path : 模型路径
             - num_id : 模型id
         """
@@ -310,6 +346,7 @@ class TrainNet:
             # 保存神经网络模型放到 checkpoint.pth 目录中
             'state_dict': net.state_dict(),
             'optimizer' : optimizer.state_dict(),
+            'lr_param' : lr_scheduler.state_dict(),
             "train_step_count" : train_step_count,
         }, file_path)
     
