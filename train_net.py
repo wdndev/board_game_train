@@ -4,6 +4,7 @@ import sys
 import time
 import math
 import random
+import itertools
 from typing import Any
 import numpy as np
 
@@ -36,10 +37,10 @@ class TrainNet:
         # 学习率衰减
         if is_lr_decay:
             self.lr_scheduler = Cosine(optimizer=self.optimizer, start_lr=self.lr, 
-                                        warmup_iter=2, end_iter=500, num_iter=0)
+                                        warmup_iter=5, end_iter=1200, num_iter=0)
         else:
             self.lr_scheduler = NoDecay(optimizer=self.optimizer, start_lr=self.lr, 
-                                        warmup_iter=2, end_iter=500, num_iter=0)
+                                        warmup_iter=5, end_iter=1200, num_iter=0)
 
         self.model_path = create_directory("logs/" + self.model_name)
         # print(self.model_path)
@@ -89,12 +90,14 @@ class TrainNet:
         batch_num = int(len(train_loader))
         bar = Bar('Training', max=batch_num)
         start_epoch = time.time()
+        # test_loader转为循环迭代器
+        test_cycle_iter = itertools.cycle(test_loader)
         for batch_idx, batch_data in enumerate(train_loader):
             start = time.time()
             # 训练一次
             train_pi_loss, train_v_loss = self.train_one_step(self.net_work, self.optimizer, batch_data)
             # 测试一次
-            eval_pi_loss, eval_v_loss = self.eval_one_step(self.net_work, self.get_random_batch(test_loader))
+            eval_pi_loss, eval_v_loss = self.eval_one_step(self.net_work, next(test_cycle_iter))
             # 记录损失
             self.train_pi_meter.update(train_pi_loss.item())
             self.train_v_meter.update(train_v_loss.item())
@@ -155,11 +158,14 @@ class TrainNet:
                 self.writer.add_histogram(name + "_gard", params.grad, global_step=x_axis)
                 self.writer.add_histogram(name + "_data", params, global_step=x_axis)
 
-        self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count, self.model_path + "/model", num_id = str(x_axis))
-        # 最新的模型，当作最好的，后续可以改
-        # if self.train_step_count > 10:
-        self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count ,self.model_path + "/model", "best")
-        print("Successful epoches, saving the model is successful!")
+        # 每5个轮次记录一次模型
+        if self.train_step_count % 1 == 0:
+            self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count, self.model_path + "/model", num_id = str(x_axis))
+            # 最新的模型，当作最好的，后续可以改
+            self.save_model_weight(self.net_work, self.optimizer, self.lr_scheduler, self.train_step_count ,self.model_path + "/model", "best")
+            print("Successful epoches, saving the model is successful!")
+        else:
+            print("Successful epoches, not saving the model!")
         # 学习率衰减
         if self.lr_scheduler is not None:
             self.lr_scheduler.step()
@@ -205,7 +211,6 @@ class TrainNet:
         # Backpropagation and optimization
         optimizer.zero_grad()
         total_loss.backward()
-
         optimizer.step()
 
         return loss_pi, loss_v
@@ -234,7 +239,6 @@ class TrainNet:
     def calculate_loss_pi(self, pi_hat, pi):
         """ 策略损失
         """
-        nn.CrossEntropyLoss()
         pi_hat = pi_hat.view(pi_hat.shape[0], -1)
         pi = pi.view(pi.shape[0], -1)
         return self.cross_entropy_loss(pi_hat, pi, adjust=True)
@@ -349,6 +353,18 @@ class TrainNet:
             'lr_param' : lr_scheduler.state_dict(),
             "train_step_count" : train_step_count,
         }, file_path)
+
+    def to_jit(self, net_work:nn.Module, jit_model_id:str=""):
+        """ 转换模型为Jit
+        """
+        net_work.eval()
+        jit_model = torch.jit.script(net_work)
+        jit_model_dir = self.model_path + "/jit_model"
+        if not os.path.exists(jit_model_dir):
+            os.makedirs(jit_model_dir)
+        jit_mode_path = os.path.join(jit_model_dir, self.model_name + "_" + jit_model_id + ".pt")
+        torch.jit.save(jit_model, jit_mode_path)
+        print("Saving the Jit model is successful!")
     
     def initialize_weights(self, model="kaiming_normal", init_type="kaiming_normal"):
         """ 初始化神经网络参数

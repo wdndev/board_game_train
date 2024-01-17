@@ -3,6 +3,7 @@ import math
 
 class WarmupLRScheduler:
     r"""Base class for learning rate schedulers with warmup.
+        有助于减缓模型在初始阶段对mini-batch的提前过拟合现象, 保持分布的平稳有助于保持模型深层的稳定性
 
     Args:
         optimizer (torch.optim.Optimizer): optimizer used for training

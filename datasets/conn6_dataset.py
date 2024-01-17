@@ -54,12 +54,17 @@ class Conn6QDataset(Dataset):
 
 
 class Conn6Dataset(Dataset):
-    def __init__(self, data):
+    def __init__(self, data, is_all_feature=True):
         """
         初始化，定义数据内容和标签
         :param data: 传入的data
         """
-        # 当前棋子分布，对方棋子分布
+        # 1.棋盘大小
+        # 2.当前棋子分布
+        # 3.对方棋子分布
+        # 4.可行位置
+        # 5~16.优先值 （13个）
+        # 17.是否第二步
         self.state = torch.FloatTensor(data["bf"])
         # position target, pi
         self.pt = torch.FloatTensor(data["pt"])
@@ -67,6 +72,9 @@ class Conn6Dataset(Dataset):
         self.vt = torch.FloatTensor(data["vt"])
         # 是否第二步 0，第一步，1，第二步
         self.gf = torch.FloatTensor(data["gf"])
+
+        # 是否为全部特征
+        self.is_all_feature = is_all_feature
 
     def __len__(self):
         """
@@ -94,6 +102,8 @@ class Conn6Dataset(Dataset):
         return bf, pt
 
     def get_value_label(self, vt):
+        # print(vt.shape)
+        # print(vt)
         return [vt[0] - vt[1]]
 
     def __getitem__(self, index):
@@ -102,8 +112,11 @@ class Conn6Dataset(Dataset):
         :param index: 序号
         :return: boardFeature, policyTarget, valueTarget
         """
-        bf, pt = self.data_strong(self.state[index], self.gf[index], self.pt[index])
-        vt = torch.Tensor(self.get_value_label(self.vt[index]))
+        if not self.is_all_feature and self.state[index].shape[0] > 3:
+            bf, pt = self.data_strong(self.state[index][0:3], self.gf[index], self.pt[index])
+        else:
+            bf, pt = self.data_strong(self.state[index], self.gf[index], self.pt[index])
+        vt = torch.FloatTensor(self.get_value_label(self.vt[index]))
         return bf, pt, vt
 
 # # 指定文件夹路径

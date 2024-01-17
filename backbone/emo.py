@@ -214,7 +214,7 @@ class ValueHead(nn.Module):
         x = x.mean((2, 3))
         x = self.fc(x)
 
-        return x
+        return F.tanh(x)
 
 
 class iRMB(nn.Module):

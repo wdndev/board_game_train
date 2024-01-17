@@ -3,6 +3,7 @@ import os
 from time import strftime, localtime
 import numpy as np
 import random
+import itertools
 import torch
 from torch.utils.data import Dataset, DataLoader
 
@@ -29,16 +30,18 @@ def random_file_name(folder_path):
     file_path = os.path.join(folder_path, random_file)
     return file_path
 
-
 if __name__ == "__main__":
 
-    batch_size = 256
+    batch_size = 128
     lr = 1e-3
-    in_chans = 3
+    in_chans = 18
     board_size = 19
     is_lr_decay = True
+
+    is_all_feature = True if in_chans == 18 else False
     
-    model = resnet_10b128c(in_chans=in_chans, board_size=board_size)
+    model = mobile_vit(in_chans=in_chans, board_size=board_size)
+    model.model_name = "mobile_vit_inc18"
     # model = ResNetTest(n_feature_planes=3, nun_block=10, in_channels=128, out_channels=128)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     train_net = TrainNet(model, device, lr=lr, is_lr_decay=is_lr_decay)
@@ -54,25 +57,25 @@ if __name__ == "__main__":
     }
     train_net.save_csv_data("params", [param], suffix='txt')
 
-    # for name, parms in model.named_parameters():
-    #     print(type(parms.grad))
-    #     print("11111111111111:", parms.grad)
-    #     print("2222222222222: ", parms)
-
-
     while (True):
-        train_random_path = random_file_name("datasets/conn6_data/train_data")
-        val_random_path = random_file_name("datasets/conn6_data/val_data")
+        train_random_path = random_file_name("datasets/conn6_all_feature/train_data")
+        val_random_path = random_file_name("datasets/conn6_all_feature/val_data")
         
-        train_sets = Conn6Dataset(np.load(train_random_path))
-        test_sets = Conn6Dataset(np.load(val_random_path))
+        train_sets = Conn6Dataset(np.load(train_random_path), is_all_feature=is_all_feature)
+        test_sets = Conn6Dataset(np.load(val_random_path), is_all_feature=is_all_feature)
         train_loader = DataLoader(train_sets, batch_size=batch_size, shuffle=True)
         test_loader = DataLoader(test_sets, batch_size=batch_size, shuffle=True)
+        
         train_net.train(train_loader, test_loader)
         train_net.save_csv_data("data_file", [train_random_path, val_random_path])
 
 
-
+    # train_sets = Conn6Dataset(np.load("datasets/conn6_all_feature/original_data/data_0.npz"), is_all_feature=True)
+    # # train_sets = Conn6Dataset(np.load("datasets/conn6_data/val_data/data_0.npz"), is_all_feature=True)
+    # print(len(train_sets))
+    # for i in range(5):
+    #     bf, pt, vt = train_sets[i]
+    #     print(vt)
 
     # for idx, file_name in enumerate(file_list):
     #     val_radom_path = random_file_name("datasets/conn6_data/val_data")

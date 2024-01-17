@@ -43,8 +43,8 @@ class ValueHead(nn.Module):
         self.bn1 = nn.BatchNorm2d(in_channel)
         self.conv2 = nn.Conv2d(in_channel, in_channel, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(in_channel)
-        self.fc = nn.Linear(in_features=in_channel, out_features=1)
         self.relu = nn.ReLU()
+        self.fc = nn.Linear(in_features=in_channel, out_features=1)
 
     def forward(self, x):
         x = self.conv1(x)
@@ -57,7 +57,7 @@ class ValueHead(nn.Module):
         x = x.mean((2, 3))
         x = self.fc(x)
 
-        return x
+        return F.tanh(x)
 
 
 class ChessResNet(nn.Module):
