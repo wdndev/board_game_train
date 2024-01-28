@@ -48,8 +48,8 @@ class TrainNet:
 
         self.writer = SummaryWriter(log_dir=self.model_path + "/tensorboard")
         # 显示网络结构
-        input_channel_dim = next(self.net_work.parameters()).shape[1] 
-        self.writer.add_graph(self.net_work, input_to_model = torch.rand(5,input_channel_dim,board_size,board_size).to(device))
+        # input_channel_dim = next(self.net_work.parameters()).shape[1] 
+        # self.writer.add_graph(self.net_work, input_to_model = torch.rand(5,input_channel_dim,board_size,board_size).to(device))
         self.train_step_count = 0
 
         # 加载模型、优化器和学习率参数
@@ -197,11 +197,6 @@ class TrainNet:
 
         # forward
         pi_hat, v_hat = net_work(batch_state)
-
-        # print("pi_hat: ", pi_hat.shape)
-        # print("v_hat: ", v_hat.shape)
-        # print("batch_pi: ", batch_pi.shape)
-        # print("batch_z: ", batch_z.shape)
 
         # Calculate losses
         loss_pi = self.calculate_loss_pi(pi_hat, batch_pi)

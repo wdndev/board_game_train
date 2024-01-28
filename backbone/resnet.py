@@ -106,6 +106,15 @@ def resnet_4b64c(in_chans=4, board_size=19):
     model.model_name = "resnet_4b64c"
     return model
 
+def resnet_8b96c(in_chans=4, board_size=19):
+    """ Total of parameters: 1543204
+    """
+    model = ChessResNet(in_chans=in_chans, 
+                       depths=8, 
+                       channel_size=96)
+    model.model_name = "resnet_8b96c"
+    return model
+
 def resnet_4b128c(in_chans=4, board_size=19):
     """ Total of parameters: 1557506
     """
@@ -146,6 +155,23 @@ def resnet_20b128c(in_chans=4, board_size=19):
     model.model_name = "resnet_20b128c"
     return model
 
+def resnet_100b128c(in_chans=4, board_size=19):
+    """ Total of parameters: 29942148
+    """
+    model = ChessResNet(in_chans=in_chans, 
+                       depths=100)
+    model.model_name = "resnet_100b128c"
+    return model
+
+def resnet_100b256c(in_chans=4, board_size=19):
+    """ Total of parameters: 119603972
+    """
+    model = ChessResNet(in_chans=in_chans, 
+                       depths=100,
+                       channel_size=256)
+    model.model_name = "resnet_100b256c"
+    return model
+
 
 
 def print_model_parameters(model):
@@ -162,7 +188,7 @@ if __name__ == "__main__":
     # 随机初始化一个 2x4x19x19 的张量
     tensor = torch.randn(5, 3, 19, 19)
 
-    model = resnet_4b64c(in_chans=3, board_size=19)
+    model = resnet_100b256c(in_chans=3, board_size=19)
 
     p_hat, v_hat = model(tensor)
     print(p_hat.shape)

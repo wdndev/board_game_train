@@ -184,7 +184,7 @@ class ChessTransformer(nn.Module):
     def __init__(self, board_size=19, patch_size=3, in_c=4, embed_dim=384, 
                  depth=4, num_heads=4, mlp_ratio=4.0, qkv_bias=True,
                  qk_scale=None, representation_size=None, drop_ratio=0.,
-                 attn_drop_ratio=0., drop_path_ratio=0., embed_layer=PatchEmbed, 
+                 attn_drop_ratio=0., drop_path_ratio=0., 
                  norm_layer=None, act_layer=None):
         """
         Args:
@@ -211,7 +211,7 @@ class ChessTransformer(nn.Module):
         norm_layer = norm_layer or partial(nn.LayerNorm, eps=1e-6)
         act_layer = act_layer or nn.GELU
 
-        self.patch_embed = embed_layer(board_size=board_size, patch_size=patch_size, in_c=in_c, embed_dim=embed_dim)
+        self.patch_embed = PatchEmbed(board_size=board_size, patch_size=patch_size, in_c=in_c, embed_dim=embed_dim)
         num_patches = self.patch_embed.num_patches
 
         # 分类头
@@ -281,6 +281,18 @@ def chess_transformer_88_128(in_chans=4, board_size=19):
     model.model_name = "chess_transformer_88_128"
     return model
 
+def chess_transformer_88_112(in_chans=4, board_size=19):
+    """ Total of parameters: 1610238
+    """
+    model = ChessTransformer(in_c=in_chans,
+                             board_size=board_size,
+                             embed_dim=112,
+                             depth=8,
+                             num_heads=8,
+                             representation_size=None)
+    model.model_name = "chess_transformer_88_112"
+    return model
+
 def chess_transformer_88_96(in_chans=4, board_size=19):
     """ Total of parameters: 1270174
     """
@@ -342,17 +354,17 @@ def print_model_parameters(model):
 
 if __name__ == "__main__":
     # 随机初始化一个 2x4x19x19 的张量
-    tensor = torch.randn(5, 4, 19, 19)
+    tensor = torch.randn(5, 18, 19, 19)
 
-    patch = PatchEmbed()
+    patch = PatchEmbed(in_c=18, embed_dim=112)
     x = patch(tensor)
     print(x.shape)
     print(patch.num_patches)
 
-    model = chess_transformer_88_64(in_chans=4, board_size=19)
+    model = chess_transformer_88_112(in_chans=18, board_size=19)
 
     p_hat, v_hat = model(tensor)
     print(p_hat.shape)
     print(v_hat.shape)
 
-    # print_model_parameters(model)
+    print_model_parameters(model)

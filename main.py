@@ -14,8 +14,8 @@ from train_net import TrainNet
 from utils.helper import print_model_parameters
 from utils.file_buffer import FileBuffer
 
-from backbone.resnet import resnet_10b128c, resnet_4b64c, resnet_15b128c
-from backbone.chess_transformer import chess_transformer_88_64, chess_transformer_88_96
+from backbone.resnet import resnet_10b128c, resnet_4b128c
+from backbone.chess_transformer import chess_transformer_88_112, chess_transformer_88_96
 from backbone.convenext_v2 import chess_convnextv2_1121_32, chess_convnextv2_2242_32
 from backbone.mobilevit_v1 import mobile_vit
 from backbone.mobilecgt_v1 import mobile_cgt_v1
@@ -40,9 +40,9 @@ if __name__ == "__main__":
 
     is_all_feature = True if in_chans == 18 else False
     
-    model = mobile_vit(in_chans=in_chans, board_size=board_size)
-    model.model_name = "mobile_vit_inc18"
-    # model = ResNetTest(n_feature_planes=3, nun_block=10, in_channels=128, out_channels=128)
+    # model = resnet_4b128c(in_chans=in_chans, board_size=board_size)
+    model = chess_transformer_88_112(in_chans=in_chans, board_size=board_size)
+    model.model_name = model.model_name + "_inc" + str(in_chans) + "_softlabel"
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     train_net = TrainNet(model, device, lr=lr, is_lr_decay=is_lr_decay)
     param = {
@@ -58,8 +58,8 @@ if __name__ == "__main__":
     train_net.save_csv_data("params", [param], suffix='txt')
 
     while (True):
-        train_random_path = random_file_name("datasets/conn6_all_feature/train_data")
-        val_random_path = random_file_name("datasets/conn6_all_feature/val_data")
+        train_random_path = random_file_name("datasets/conn6_data_softlabel/train_data")
+        val_random_path = random_file_name("datasets/conn6_data_softlabel/val_data")
         
         train_sets = Conn6Dataset(np.load(train_random_path), is_all_feature=is_all_feature)
         test_sets = Conn6Dataset(np.load(val_random_path), is_all_feature=is_all_feature)
