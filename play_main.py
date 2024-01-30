@@ -123,8 +123,8 @@ def save_csv_data(type_name : str, data: list, suffix:str='csv'):
 if __name__ == '__main__':
     in_chans = 4
     board_size = 19
-    file_paths_and_names = get_file_list("logs/resnet_10b128c_inc4_hardlabel/model")
-    for i in range(1, len(file_paths_and_names)):
+    file_paths_and_names = get_file_list("logs/resnet_10b128c_inc4_softlabel/model")
+    for i in range(3, len(file_paths_and_names)):
         file_name_1 = file_paths_and_names[i-1][0]
         file_path_1 = file_paths_and_names[i-1][1]
         file_name_2 = file_paths_and_names[i][0]
@@ -139,7 +139,7 @@ if __name__ == '__main__':
 
         net_old_win, net_new_win = computer_model(model_old, model_new, 20)
         print("{0} vs {1} : {2}-{3}".format(file_name_1, file_name_2, net_old_win, net_new_win))
-        save_csv_data("pk/resnet_10b128c_inc4_hardlabel", [file_name_1, file_name_2, net_old_win, net_new_win])
+        save_csv_data("pk/resnet_10b128c_inc4_softlabel", [file_name_1, file_name_2, net_old_win, net_new_win])
 
 
     

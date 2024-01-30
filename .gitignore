@@ -7,3 +7,5 @@ datasets/conn6_data
 datasets/test
 
 logs/*
+
+elo_compute/*
