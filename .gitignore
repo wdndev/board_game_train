@@ -7,5 +7,6 @@ datasets/conn6_data
 datasets/test
 
 logs/*
+old_logs/*
 
 elo_compute/*
