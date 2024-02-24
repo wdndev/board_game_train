@@ -81,7 +81,7 @@ class AlphaZeroMCTS:
                 board_feature_planes = board.get_feature_planes().to(self.device)
                 board_feature_planes.unsqueeze_(0)
                 # print(board_feature_planes.shape)
-                board_feature_planes = torch.cat((board_feature_planes[:, :3, ...], board_feature_planes[:, -1:, ...]), dim=1)
+                # board_feature_planes = torch.cat((board_feature_planes[:, :3, ...], board_feature_planes[:, -1:, ...]), dim=1)
                 # print(board_feature_planes.shape)
                 p_hat, v_hat = self.net_work(board_feature_planes)
                 p = p_hat.flatten()

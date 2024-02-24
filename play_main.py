@@ -6,6 +6,7 @@ import random
 
 from backbone.resnet import resnet_10b128c, resnet_8b96c, resnet_6b128c, resnet_4b128c
 from backbone.mobilevit_v1 import mobile_vit
+from backbone.chess_transformer import chess_transformer_88_112
 from connect6.board import Conn6Board
 from connect6.alpha_zero_mcts import AlphaZeroMCTS
 
@@ -121,25 +122,25 @@ def save_csv_data(type_name : str, data: list, suffix:str='csv'):
         ans = ''
 
 if __name__ == '__main__':
-    in_chans = 4
+    in_chans = 18
     board_size = 19
-    file_paths_and_names = get_file_list("logs/resnet_10b128c_inc4_softlabel/model")
-    for i in range(3, len(file_paths_and_names)):
+    file_paths_and_names = get_file_list("logs/chess_transformer_88_112_inc18_softlabel/model")
+    for i in range(21, len(file_paths_and_names)):
         file_name_1 = file_paths_and_names[i-1][0]
         file_path_1 = file_paths_and_names[i-1][1]
         file_name_2 = file_paths_and_names[i][0]
         file_path_2 = file_paths_and_names[i][1]
         # print(file_name_1 + "  " + file_name_2)
 
-        model_old = resnet_10b128c(in_chans=in_chans, board_size=board_size) 
-        model_new = resnet_10b128c(in_chans=in_chans, board_size=board_size) 
+        model_old = chess_transformer_88_112(in_chans=in_chans, board_size=board_size) 
+        model_new = chess_transformer_88_112(in_chans=in_chans, board_size=board_size) 
 
         model_old = load_model_weight(model_old, file_path_1)
         model_new = load_model_weight(model_new, file_path_2)
 
         net_old_win, net_new_win = computer_model(model_old, model_new, 20)
         print("{0} vs {1} : {2}-{3}".format(file_name_1, file_name_2, net_old_win, net_new_win))
-        save_csv_data("pk/resnet_10b128c_inc4_softlabel", [file_name_1, file_name_2, net_old_win, net_new_win])
+        save_csv_data("elo_compute/chess_transformer_88_112_inc18_softlabel", [file_name_1, file_name_2, net_old_win, net_new_win])
 
 
     

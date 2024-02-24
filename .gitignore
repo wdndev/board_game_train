@@ -1,12 +1,14 @@
-# 输出文件
-__pycache__
-
-
+# datasets
 datasets/chess_label_sets
 datasets/conn6_data
+datasets/conn6_data_hardlabel
+datasets/conn6_data_softlabel
 datasets/test
 
-logs/*
-old_logs/*
+elo_compute
+hash
 
-elo_compute/*
+logs
+old_logs
+
+
