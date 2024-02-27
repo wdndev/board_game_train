@@ -17,10 +17,6 @@ from utils.file_buffer import FileBuffer
 from backbone.resnet import resnet_10b128c, resnet_4b128c
 from backbone.chess_transformer import chess_transformer_88_112, chess_transformer_88_96
 from backbone.convenext_v2 import chess_convnextv2_1121_32, chess_convnextv2_2242_32
-from backbone.mobilevit_v1 import mobile_vit
-from backbone.mobilecgt_v1 import mobile_cgt_v1
-from backbone.mobilecgt_v2 import mobile_cgt_v2
-from backbone.mobilecgt_v3 import mobile_cgt_v3, mobile_cgt_v3_1_6m
 from backbone.emo import emo_1m
 
 
@@ -40,8 +36,8 @@ if __name__ == "__main__":
 
     is_all_feature = True if in_chans == 18 else False
     
-    # model = resnet_4b128c(in_chans=in_chans, board_size=board_size)
-    model = chess_transformer_88_112(in_chans=in_chans, board_size=board_size)
+    model = resnet_4b128c(in_chans=in_chans, board_size=board_size)
+    # model = chess_transformer_88_112(in_chans=in_chans, board_size=board_size)
     model.model_name = model.model_name + "_inc" + str(in_chans) + "_softlabel"
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     train_net = TrainNet(model, device, lr=lr, is_lr_decay=is_lr_decay)

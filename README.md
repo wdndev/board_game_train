@@ -12,7 +12,7 @@
 
 ### 3.Directory
 
-```txt
+```shell
 │  main.py                  # 主函数
 │  play_main.py             # 对弈主函数
 │  to_jit.py                # 转换为jit模型
@@ -48,5 +48,16 @@
 ```
 
 ### 4.Running
+
+
+
+
+
+
+
+
+
+
+
 
 
