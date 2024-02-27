@@ -1,4 +1,5 @@
-__pycache__
+__pycache__/*
+backbone/__pycache__
 
 # datasets
 datasets/chess_label_sets
